@@ -229,7 +229,7 @@ This design allows individual preprocessing stages to be modified or extended wi
 # 5. Project Structure
 
 ```text
-parallax-rag-knowledge-system/
+RAG-Powered-Knowledge-Extraction-System/
 │
 ├── data/
 │   ├── raw/
