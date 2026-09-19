@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+.env
+.env.*
+
+data/raw/
+data/processed/
+
+hf_cache/
+*.log
+
+chroma_db/
