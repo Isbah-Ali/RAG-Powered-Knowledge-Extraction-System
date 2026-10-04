@@ -1,9 +1,7 @@
+# RAG Powered Knowledge Extraction System
+A production-oriented **Retrieval-Augmented Generation (RAG) knowledge extraction system** developed as part of the **Parallax Labs AI/ML Engineer Internship**.
 
-# RAG-Powered Knowledge Extraction System
-
-A production-oriented **Retrieval-Augmented Generation (RAG)** knowledge extraction system developed as part of the **Parallax Labs AI/ML Engineer Internship**.
-
-The system is designed to ingest thousands of real-world research documents, preprocess and normalize their content, intelligently chunk documents, transform text into semantic vector representations, index those representations in a vector database, perform similarity-based retrieval, and ultimately generate grounded responses using Large Language Models (LLMs).
+The system is designed to ingest thousands of real-world research documents, preprocess and normalize their content, intelligently chunk documents, transform text into semantic vector representations, index those representations in a vector database, perform similarity-based retrieval, and generate grounded responses using Large Language Models (LLMs).
 
 The project is being developed incrementally across a six-week engineering roadmap, with emphasis on **data quality, modular architecture, retrieval quality, measurable performance, evaluation, reproducibility, maintainability, and production-ready API design**.
 
@@ -13,22 +11,22 @@ Rather than treating each weekly requirement as an isolated assignment, the impl
 
 ## Project Status
 
-| Phase | Focus | Status |
-|---|---|---|
-| Week 1 | Environment, data ingestion & preprocessing | ✅ Completed |
-| Week 2 | Chunking, embeddings, ChromaDB & semantic retrieval | 🔄 In Progress |
-| Week 3 | LLM integration & grounded generation | ⏳ Planned |
-| Week 4 | Topic modeling, sentiment & NER | ⏳ Planned |
-| Week 5 | FastAPI, evaluation & benchmarking | ⏳ Planned |
-| Week 6 | Documentation, architecture & final optimization | ⏳ Planned |
+| Phase  | Focus                                               | Status      |
+| ------ | --------------------------------------------------- | ----------- |
+| Week 1 | Environment, data ingestion & preprocessing         | ✅ Completed |
+| Week 2 | Chunking, embeddings, ChromaDB & semantic retrieval | ✅ Completed |
+| Week 3 | LLM integration & grounded generation               | ✅ Completed |
+| Week 4 | Topic modeling, sentiment & NER                     | ⏳ Planned   |
+| Week 5 | FastAPI, evaluation & benchmarking                  | ⏳ Planned   |
+| Week 6 | Documentation, architecture & final optimization    | ⏳ Planned   |
 
 ---
 
 # 1. Project Overview
 
-The objective of this project is to build an end-to-end knowledge extraction system capable of retrieving and eventually answering questions over a large collection of real-world research documents.
+The objective of this project is to build an end-to-end knowledge extraction system capable of retrieving and answering questions over a large collection of real-world research documents.
 
-The system is being constructed as a modular retrieval and generation pipeline:
+The system is constructed as a modular retrieval and generation pipeline:
 
 ```text
                     ┌─────────────────────┐
@@ -79,6 +77,12 @@ The system is being constructed as a modular retrieval and generation pipeline:
                                │
                                ▼
                     ┌─────────────────────┐
+                    │   Prompt Builder    │
+                    │ Retrieved Context   │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
                     │   LLM Generation    │
                     │ DeepSeek / OpenRouter│
                     │       / Groq        │
@@ -89,8 +93,9 @@ The system is being constructed as a modular retrieval and generation pipeline:
                     │ Grounded Response   │
                     │ + Source Context    │
                     └─────────────────────┘
-````
+```
 
+---
 
 # 2. Week 1 — Environment, Data Ingestion & Preprocessing
 
@@ -452,7 +457,6 @@ Chunk ID
 Document text
 Dense embedding
 Document metadata
-Similarity-search information
 ```
 
 Metadata includes:
@@ -524,7 +528,7 @@ Source
 Similarity distance
 ```
 
-This metadata will later support source-aware RAG responses and citation generation.
+This metadata supports source-aware RAG responses and citation generation.
 
 ---
 
@@ -592,9 +596,272 @@ This provides a reproducible baseline for future retrieval optimizations.
 
 ---
 
-# 9. Project Structure
+# 9. Week 3 — LLM Integration & Grounded Generation
 
-The project structure reflects the transition from a preprocessing pipeline into a complete retrieval system.
+Week 3 transforms the retrieval infrastructure into a functional **Retrieval-Augmented Generation pipeline**.
+
+The goal of this stage was to connect the retrieved evidence from ChromaDB to an LLM while ensuring that generated responses remain grounded in the retrieved context.
+
+The resulting pipeline is:
+
+```text
+User Query
+     │
+     ▼
+Query Embedding
+     │
+     ▼
+ChromaDB Retrieval
+     │
+     ▼
+Top-K Relevant Chunks
+     │
+     ▼
+Context Formatting
+     │
+     ▼
+Grounded Prompt
+     │
+     ▼
+LLM API
+     │
+     ▼
+Generated Answer
+     │
+     ▼
+Source-Aware Response
+```
+
+---
+
+## 9.1 LLM Integration
+
+The generation layer integrates an external LLM API with the existing retrieval pipeline.
+
+The LLM is not given unrestricted access to the complete corpus.
+
+Instead, the system follows the RAG pattern:
+
+```text
+Large Corpus
+     ↓
+Semantic Retrieval
+     ↓
+Relevant Evidence
+     ↓
+LLM Context
+     ↓
+Answer
+```
+
+This reduces the amount of irrelevant information passed to the model and provides a grounding mechanism for generated responses.
+
+The generation layer is intentionally separated from the retrieval implementation so that retrieval and generation can be tested independently.
+
+---
+
+## 9.2 Prompt Construction
+
+Retrieved chunks are converted into structured context before being passed to the LLM.
+
+Conceptually:
+
+```text
+System Instructions
+        +
+Retrieved Evidence
+        +
+User Question
+        ↓
+Grounded Prompt
+        ↓
+LLM
+```
+
+The prompt instructs the model to prioritize the supplied evidence and avoid presenting unsupported information as fact.
+
+The generation layer therefore acts as a controlled interface between:
+
+```text
+Retriever
+    ↓
+Context
+    ↓
+LLM
+```
+
+rather than directly sending the user query to the model.
+
+---
+
+## 9.3 Grounded Generation
+
+The system is designed to answer questions using the retrieved research context.
+
+For supported queries:
+
+```text
+Question
+   ↓
+Relevant Papers Retrieved
+   ↓
+Evidence Passed to LLM
+   ↓
+Answer Generated From Evidence
+```
+
+If the retrieved context does not contain sufficient information, the system is designed to avoid confidently fabricating an answer.
+
+This distinction is important because an LLM-only chatbot and a RAG system have different reliability characteristics.
+
+The purpose of the retrieval layer is to provide an evidence boundary around generation.
+
+---
+
+## 9.4 Source-Aware Responses
+
+Retrieved chunks retain their document metadata throughout the pipeline.
+
+The generation stage can therefore associate generated answers with their underlying evidence:
+
+```text
+Answer
+  │
+  ├── Source Document
+  ├── Paper Title
+  ├── Chunk Information
+  └── Retrieved Context
+```
+
+Maintaining this metadata makes the system more transparent and provides a foundation for explicit source citations and evidence presentation in later versions.
+
+---
+
+## 9.5 Error Handling
+
+The generation layer includes defensive handling for failures that can occur when communicating with an external LLM service.
+
+The pipeline accounts for conditions such as:
+
+* Missing API credentials
+* Invalid API configuration
+* Empty queries
+* Empty retrieved context
+* API request failures
+* Timeout conditions
+* Rate limiting
+* Unexpected LLM responses
+* Generation failures
+
+The goal is to prevent external API failures from silently breaking the complete RAG pipeline.
+
+---
+
+## 9.6 Hallucination Mitigation
+
+The project does not treat prompt engineering as a guarantee that hallucinations cannot occur.
+
+Instead, hallucination mitigation is approached through multiple layers:
+
+```text
+Semantic Retrieval
+        ↓
+Relevant Evidence
+        ↓
+Explicit Grounding Instructions
+        ↓
+Controlled Context
+        ↓
+LLM Generation
+```
+
+The retrieved context acts as the primary evidence source, while the prompt instructs the model to avoid unsupported claims.
+
+Further quantitative hallucination and groundedness evaluation is planned for Week 5.
+
+---
+
+## 9.7 Off-Topic Query Handling
+
+The system distinguishes between queries that can reasonably be answered from the indexed corpus and questions for which the retrieved evidence is insufficient.
+
+The generation layer is designed to avoid treating arbitrary unrelated questions as if they were supported by the research corpus.
+
+This establishes an important boundary:
+
+```text
+Relevant Query
+      ↓
+Retrieve Evidence
+      ↓
+Generate Grounded Answer
+
+
+Unsupported / Off-Topic Query
+      ↓
+Insufficient Evidence
+      ↓
+Controlled Response
+```
+
+This behavior will be further evaluated and improved during the formal evaluation phase.
+
+---
+
+## 9.8 End-to-End RAG Flow
+
+With Week 3 completed, the system now operates conceptually as:
+
+```text
+                 ┌──────────────────┐
+                 │    User Query    │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Query Embedding  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │    ChromaDB      │
+                 │ Semantic Search  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Retrieved Chunks │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Context Builder  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │  Grounded Prompt │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │       LLM        │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Grounded Answer  │
+                 │ + Source Context │
+                 └──────────────────┘
+```
+
+This represents the first complete end-to-end RAG generation path in the project.
+
+---
+
+# 10. Project Structure
+
+The project structure now reflects the transition from a preprocessing pipeline into an end-to-end RAG system.
 
 ```text
 RAG-Powered-Knowledge-Extraction-System/
@@ -638,11 +905,11 @@ RAG-Powered-Knowledge-Extraction-System/
 └── README.md
 ```
 
-> **Note:** `data/raw/`, `data/processed/`, `chroma_db/`, `.venv/`, Hugging Face caches and other generated artifacts are intentionally excluded from version control.
+> **Note:** The exact generation-layer filenames may evolve as the project progresses. Generated datasets, vector stores, caches, virtual environments and secrets remain intentionally excluded from version control.
 
 ---
 
-# 10. Environment & Technology Stack
+# 11. Environment & Technology Stack
 
 ### Programming Language
 
@@ -674,6 +941,15 @@ RAG-Powered-Knowledge-Extraction-System/
 
 * ChromaDB
 
+### LLM / Generative AI
+
+* DeepSeek
+* OpenRouter
+* Groq
+* Prompt construction
+* Grounded generation
+* Context-aware generation
+
 ### Testing
 
 * pytest
@@ -685,28 +961,39 @@ RAG-Powered-Knowledge-Extraction-System/
 * GitHub
 * Python virtual environment
 
-### Current Retrieval Components
+### Current RAG Components
 
 * Recursive document chunking
+* Configurable chunk size and overlap
+* Deterministic chunk identifiers
 * Sentence Transformer embeddings
 * `all-MiniLM-L6-v2`
 * ChromaDB persistent vector storage
+* Batched vector indexing
 * Semantic top-K retrieval
+* Retrieval edge-case handling
 * Retrieval latency benchmarking
-
-### Planned LLM / RAG Components
-
-* DeepSeek
-* OpenRouter
-* Groq
-* Prompt construction
+* LLM integration
+* Retrieved-context prompt construction
 * Grounded generation
 * Source-aware responses
+* External API error handling
+* Off-topic query handling
+
+### Planned Components
+
+* Topic modeling
+* Sentiment analysis
+* Named Entity Recognition
 * FastAPI
+* Formal retrieval evaluation
+* Generation evaluation
+* End-to-end benchmarking
+* Production-oriented API layer
 
 ---
 
-# 11. Environment Verification
+# 12. Environment Verification
 
 The project includes an environment verification script:
 
@@ -738,7 +1025,7 @@ GPU availability is detected dynamically rather than assumed.
 
 ---
 
-# 12. Dataset Acquisition
+# 13. Dataset Acquisition
 
 The dataset acquisition process is implemented in:
 
@@ -762,7 +1049,7 @@ data/raw/arxiv_5500.jsonl
 
 ---
 
-# 13. Data Preprocessing
+# 14. Data Preprocessing
 
 Run the preprocessing pipeline using:
 
@@ -784,7 +1071,7 @@ The preprocessing stage reports:
 
 ---
 
-# 14. Document Chunking
+# 15. Document Chunking
 
 Generate retrieval-ready chunks using:
 
@@ -810,7 +1097,7 @@ The chunking pipeline reports:
 
 ---
 
-# 15. Vector Store Construction
+# 16. Vector Store Construction
 
 Build the ChromaDB vector store using:
 
@@ -835,7 +1122,7 @@ chroma_db/
 
 ---
 
-# 16. Semantic Search
+# 17. Semantic Search
 
 Semantic retrieval can be accessed through:
 
@@ -857,11 +1144,37 @@ Top-K chunks
 Text + metadata + distance
 ```
 
-This retrieval layer is intentionally separated from the eventual LLM generation layer so that retrieval quality can be evaluated independently.
+This retrieval layer is intentionally separated from the LLM generation layer so that retrieval quality can be evaluated independently.
 
 ---
 
-# 17. Retrieval Benchmark
+# 18. RAG Generation
+
+The Week 3 generation layer extends semantic retrieval into an end-to-end RAG workflow.
+
+The general execution path is:
+
+```text
+User Query
+      ↓
+Semantic Retrieval
+      ↓
+Relevant Context
+      ↓
+Prompt Construction
+      ↓
+LLM API
+      ↓
+Grounded Response
+```
+
+The generation process uses retrieved evidence rather than relying solely on the model's internal knowledge.
+
+This separation allows the system to maintain independent retrieval and generation components while still exposing a unified RAG workflow.
+
+---
+
+# 19. Retrieval Benchmark
 
 Run the retrieval benchmark using:
 
@@ -889,11 +1202,11 @@ LLM Generation Performance
 End-to-End RAG Performance
 ```
 
-This separation will become important during later system evaluation.
+Future benchmarking will extend this into full end-to-end measurements.
 
 ---
 
-# 18. Testing
+# 20. Testing
 
 Unit tests are implemented using `pytest`.
 
@@ -937,7 +1250,7 @@ The testing architecture is designed to expand as the RAG system becomes more co
 
 ---
 
-# 19. Reproducibility
+# 21. Reproducibility
 
 The project uses a Python virtual environment and a locked dependency file:
 
@@ -971,17 +1284,19 @@ python -m scripts.build_vector_store --reset
 python -m scripts.benchmark_retrieval
 ```
 
-This allows the complete preprocessing-to-retrieval pipeline to be reproduced from the source dataset and project code.
+The RAG generation stage additionally requires a configured LLM API credential.
+
+This allows the complete preprocessing-to-retrieval pipeline to be reproduced from the source dataset and project code while keeping credentials outside version control.
 
 ---
 
-# 20. Engineering Principles
+# 22. Engineering Principles
 
 The project is being developed with the following engineering principles:
 
 ### Modular Architecture
 
-Data acquisition, preprocessing, chunking, embedding, vector storage and retrieval are separated into independent modules.
+Data acquisition, preprocessing, chunking, embedding, vector storage, retrieval and generation are separated into independent components.
 
 ### Reproducibility
 
@@ -1003,9 +1318,13 @@ Documents and chunks use stable identifiers, allowing vector records to be updat
 
 Embedding generation and retrieval latency are measured rather than relying only on qualitative demonstrations.
 
+### Grounded Generation
+
+LLM responses are generated using retrieved evidence rather than treating the LLM as an unrestricted knowledge source.
+
 ### Separation of Concerns
 
-Retrieval is implemented independently from future LLM generation, allowing retrieval quality and generation quality to be evaluated separately.
+Retrieval is implemented independently from LLM generation, allowing retrieval quality and generation quality to be evaluated separately.
 
 ### Scalability
 
@@ -1017,51 +1336,63 @@ Source code and configuration are version-controlled while large generated datas
 
 ---
 
-# 21. Planned RAG Architecture
+# 23. Current RAG Architecture
 
-The current Week 2 retrieval system provides the foundation for the complete RAG pipeline.
+With Weeks 1–3 completed, the system now follows this architecture:
 
 ```text
-                 Clean Corpus
-                      │
-                      ▼
-              Recursive Chunking
-                      │
-                      ▼
-              Chunk Metadata
-                      │
-                      ▼
-             Sentence Embeddings
-                      │
-                      ▼
-                  ChromaDB
-                      │
-             ┌────────┴────────┐
-             │                 │
-             ▼                 ▼
-       User Query        Metadata Filters
-             │                 │
-             └────────┬────────┘
-                      ▼
-             Semantic Retrieval
-                      │
-                      ▼
-              Retrieved Context
-                      │
-                      ▼
-                Prompt Builder
-                      │
-                      ▼
-                     LLM
-                      │
-                      ▼
-             Grounded Response
-                      │
-                      ▼
-             Sources / Evidence
+                 ┌───────────────────┐
+                 │   Source Corpus   │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │   Preprocessing   │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │     Chunking      │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │    Embeddings     │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │     ChromaDB      │
+                 └─────────┬─────────┘
+                           │
+                           │
+                 ┌─────────▼─────────┐
+                 │ Semantic Retrieval│
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Retrieved Context │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │  Prompt Builder   │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │       LLM         │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Grounded Response │
+                 │  + Source Context │
+                 └───────────────────┘
 ```
 
-The current architecture deliberately separates:
+The architecture deliberately separates:
 
 ```text
 Retrieval Layer
@@ -1077,17 +1408,18 @@ from:
 ```text
 Generation Layer
       │
+      ├── Context Construction
       ├── Prompt Construction
-      ├── LLM
+      ├── LLM Integration
       ├── Grounding
-      └── Response Generation
+      └── Response Handling
 ```
 
 This makes the system easier to evaluate, debug and optimize.
 
 ---
 
-# 22. Evaluation Strategy
+# 24. Evaluation Strategy
 
 The final system will be evaluated beyond simple response generation.
 
@@ -1134,11 +1466,11 @@ Planned measurements include:
 * Sentiment classification
 * Named Entity Recognition
 
-The evaluation framework will evolve as the generation and API layers are implemented.
+The Week 3 implementation establishes the generation pipeline required for these measurements. Formal quantitative generation and end-to-end evaluation will be introduced during the evaluation phase.
 
 ---
 
-# 23. Six-Week Development Roadmap
+# 25. Six-Week Development Roadmap
 
 ## Week 1 — Foundation
 
@@ -1174,7 +1506,7 @@ Implemented components:
 * Retrieval latency benchmarking
 * Chunking unit tests
 
-**Status: In Progress**
+**Status: Completed**
 
 ---
 
@@ -1182,16 +1514,20 @@ Implemented components:
 
 **LLM integration and grounded responses**
 
-Planned components:
+Implemented components:
 
 * LLM API integration
-* Prompt engineering
-* Context injection
-* Source-aware responses
-* Error handling
+* Prompt construction
+* Retrieved-context injection
+* Grounded generation
+* Source-aware response handling
+* API error handling
+* Timeout and rate-limit handling
 * Hallucination mitigation
 * Off-topic query handling
-* End-to-end latency measurement
+* End-to-end RAG flow
+
+**Status: Completed**
 
 ---
 
@@ -1208,6 +1544,8 @@ Planned components:
 * Filtered retrieval
 * Manual validation
 
+**Status: Planned**
+
 ---
 
 ## Week 5 — API & Evaluation
@@ -1223,8 +1561,11 @@ Planned components:
 * Generation evaluation
 * Precision@K
 * Recall@K
+* Groundedness evaluation
 * Latency benchmarking
 * API unit tests
+
+**Status: Planned**
 
 ---
 
@@ -1243,9 +1584,11 @@ Planned components:
 * Project cleanup
 * Final technical documentation
 
+**Status: Planned**
+
 ---
 
-# 24. Security & Data Management
+# 26. Security & Data Management
 
 No API keys or secrets are stored in the repository.
 
@@ -1287,9 +1630,11 @@ chroma_db/
 hf_cache/
 ```
 
+LLM API credentials are supplied through environment variables and are never hard-coded into the application.
+
 ---
 
-# 25. Future Extensions
+# 27. Future Extensions
 
 Potential future extensions include:
 
@@ -1311,7 +1656,7 @@ These components will only be introduced where they provide measurable improveme
 
 ---
 
-# 26. Portfolio & Engineering Direction
+# 28. Portfolio & Engineering Direction
 
 The project is intentionally being developed beyond a minimal internship implementation.
 
@@ -1330,11 +1675,11 @@ Vector Database
        ↓
 Semantic Search
        ↓
-Retrieval Evaluation
-       ↓
 LLM Generation
        ↓
-RAG Evaluation
+RAG Grounding
+       ↓
+Retrieval & Generation Evaluation
        ↓
 API Engineering
        ↓
@@ -1356,17 +1701,14 @@ Each major component should have:
 
 ---
 
-# 27. Author
+# 29. Author
 
 **AI/ML Engineer — Parallax Labs Internship**
 
-This repository documents the engineering progression of a complete RAG-powered knowledge extraction system from raw document ingestion through retrieval, generation, evaluation and API deployment.
+This repository documents the engineering progression of a complete RAG-powered knowledge extraction system from raw document ingestion through semantic retrieval, grounded LLM generation, evaluation and API deployment.
 
 ---
 
 ## License
 
 This project is developed for educational and internship purposes as part of the Parallax Labs AI/ML Engineer Internship.
-
-```
-```
